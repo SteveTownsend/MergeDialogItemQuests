@@ -37,24 +37,26 @@ namespace MergeDialogItemQuests
                 }
                 ++needsCheck;
                 ++dialogItemOverrides;
-                // aggregate Regions from winning override and any earlier instances of the CELL
+                // aggregate Associated Quests from winning override and any earlier instances of the Dialog Item
                 var dialogItemLink = dialogItem.FormKey.ToLink<IDialogTopicGetter>();
                 ISet<FormKey> quests = new HashSet<FormKey>();
                 IList<DialogTopicAssociatedQuest> allQuests = new List<DialogTopicAssociatedQuest>();
+                bool first = true;
                 foreach (var dialogItemVersion in dialogItemLink.ResolveAll(state.LinkCache))
                 {
                     ++dialogItemOverrides;
                     foreach (var quest in dialogItemVersion.AssociatedQuests)
                     {
-                        if (quests.Add(quest.Quest.FormKey))
+                        // No need to copy entries from winning override but we must record and count them
+                        if (quests.Add(quest.Quest.FormKey) && !first)
                         {
                             allQuests.Add(quest.DeepCopy());
                         }
                     }
+                    first = false;
                 }
-                // Push Regions into a new override if the list got updated vs winning override
-                if (quests.Count > 0 &&
-                    (quests.Count > dialogItem.AssociatedQuests.Count))
+                // Push Associated Quests not already present in winning override into a new override
+                if (quests.Count > dialogItem.AssociatedQuests.Count)
                 {
                     if (state.PatchMod.DialogTopics.TryGetOrAddAsOverride(dialogItem.ToLink(), state.LinkCache, out var updated))
                     {
