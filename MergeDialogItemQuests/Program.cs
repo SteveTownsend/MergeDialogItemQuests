@@ -38,13 +38,10 @@ namespace MergeDialogItemQuests
                 }
                 ++needsCheck;
                 ++dialogItemOverrides;
-                // aggregate Associated Quests and Info Order (Masters) from winning override and any earlier instances of the Dialog Item
-                // Info Order (Masters) is stored as Info Order (all previous)
+                // aggregate Associated Quests from winning override and any earlier instances of the Dialog Item
                 var dialogItemLink = dialogItem.Record.ToLink();
                 ISet<FormKey> quests = new HashSet<FormKey>();
                 IList<DialogTopicAssociatedQuest> extraQuests = new List<DialogTopicAssociatedQuest>();
-                ISet<FormKey> infoOrders = new HashSet<FormKey>();
-                IList<IFormLinkGetter<IDialogResponsesGetter>> extraInfoOrders = new List<IFormLinkGetter<IDialogResponsesGetter>>();
                 bool first = true;
                 foreach (var dialogItemVersion in dialogItemLink.ResolveAll(state.LinkCache))
                 {
@@ -59,48 +56,19 @@ namespace MergeDialogItemQuests
                         }
                     }
                     first = false;
-                    if (dialogItemVersion.InfoOrderMastersOnly is null)
-                    {
-                        continue;
-                    }
-                    foreach (var info in dialogItemVersion.InfoOrderMastersOnly)
-                    {
-                        // Info is required for all masters
-                        if (infoOrders.Add(info.FormKey))
-                        {
-                            Console.WriteLine("Dialog Responses {0}", info.FormKey);
-                            extraInfoOrders.Add(info);
-                        }
-                    }
                 }
-                // Push Associated Quests and Info Order for all previous overrides into patch, provided not already present in winning override
+                // Push Associated Quests for all previous overrides into patch, provided not already present in winning override
                 if (quests.Count > dialogItem.Record.AssociatedQuests.Count)
                 {
                     var updated = dialogItem.GetOrAddAsOverride(state.PatchMod);
                     updated.AssociatedQuests.AddRange(extraQuests);
+                    // Discard any linked INFO records inherited from winning override
+                    updated.Responses.Clear();
                     ++questsMerged;
                 }
-                //if (infoOrders.Count > 0 &&
-                //    (dialogItem.InfoOrderAllPreviousModules is null ||
-                //     infoOrders.Count > dialogItem.InfoOrderAllPreviousModules.Count))
-                //{
-                //    if (state.PatchMod.DialogTopics.TryGetOrAddAsOverride(dialogItem.ToLink(), state.LinkCache, out var updated))
-                //    {
-                //        if (updated.InfoOrderAllPreviousModules is null)
-                //        {
-                //            updated.InfoOrderAllPreviousModules = new ExtendedList<IFormLinkGetter<IDialogResponsesGetter>>();
-                //        }
-                //        updated.InfoOrderAllPreviousModules.AddRange(extraInfoOrders);
-                //        ++responsesMerged;
-                //    }
-                //    else
-                //    {
-                //        Console.WriteLine("Failed to add override 2 {0}", dialogItem);
-                //    }
-                //}
             }
-            Console.WriteLine("Total Dialog Topics {0}, skipped {1}, checked masters/total records {2}/{3}, Associated-Quests/Dialog-Responses merged {4}/{5}",
-                dialogItems, skipped, needsCheck, dialogItemOverrides, questsMerged, responsesMerged);
+            Console.WriteLine("Total Dialog Topics {0}, skipped {1}, checked masters/total records {2}/{3}, Associated-Quests merged {4}",
+                dialogItems, skipped, needsCheck, dialogItemOverrides, questsMerged);
         }
     }
 }
