@@ -37,10 +37,12 @@ namespace MergeDialogItemQuests
                 }
                 ++needsCheck;
                 ++dialogItemOverrides;
-                // aggregate Associated Quests from winning override and any earlier instances of the Dialog Item
+                // aggregate Associated Quests and Info Order from winning override and any earlier instances of the Dialog Item
                 var dialogItemLink = dialogItem.FormKey.ToLink<IDialogTopicGetter>();
                 ISet<FormKey> quests = new HashSet<FormKey>();
                 IList<DialogTopicAssociatedQuest> allQuests = new List<DialogTopicAssociatedQuest>();
+                ISet<FormKey> infoOrders = new HashSet<FormKey>();
+                IList<IFormLinkGetter<IDialogResponsesGetter>> allInfoOrders = new List<IFormLinkGetter<IDialogResponsesGetter>>();
                 bool first = true;
                 foreach (var dialogItemVersion in dialogItemLink.ResolveAll(state.LinkCache))
                 {
@@ -53,9 +55,22 @@ namespace MergeDialogItemQuests
                             allQuests.Add(quest.DeepCopy());
                         }
                     }
+                    if (dialogItemVersion.InfoOrderAllPreviousModules is null)
+                    {
+                        first = false;
+                        continue;
+                    }
+                    foreach (var info in dialogItemVersion.InfoOrderAllPreviousModules)
+                    {
+                        // No need to copy entries from winning override but we must record and count them
+                        if (infoOrders.Add(info.FormKey) && !first)
+                        {
+                            allInfoOrders.Add(info);
+                        }
+                    }
                     first = false;
                 }
-                // Push Associated Quests not already present in winning override into a new override
+                // Push Associated Quests and Info Order for all previous overrides into patch, provided not already present in winning override
                 if (quests.Count > dialogItem.AssociatedQuests.Count)
                 {
                     if (state.PatchMod.DialogTopics.TryGetOrAddAsOverride(dialogItem.ToLink(), state.LinkCache, out var updated))
@@ -65,7 +80,25 @@ namespace MergeDialogItemQuests
                     }
                     else
                     {
-                        Console.WriteLine("Failed to add override for {0}", dialogItem);
+                        Console.WriteLine("Failed to add override 1 {0}", dialogItem);
+                    }
+                }
+                if (infoOrders.Count > 0 &&
+                    (dialogItem.InfoOrderAllPreviousModules is null ||
+                     infoOrders.Count > dialogItem.InfoOrderAllPreviousModules.Count))
+                {
+                    if (state.PatchMod.DialogTopics.TryGetOrAddAsOverride(dialogItem.ToLink(), state.LinkCache, out var updated))
+                    {
+                        if (updated.InfoOrderAllPreviousModules is null)
+                        {
+                            updated.InfoOrderAllPreviousModules = new ExtendedList<IFormLinkGetter<IDialogResponsesGetter>>();
+                        }
+                        updated.InfoOrderAllPreviousModules.AddRange(allInfoOrders);
+                        ++merged;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Failed to add override 2 {0}", dialogItem);
                     }
                 }
             }
