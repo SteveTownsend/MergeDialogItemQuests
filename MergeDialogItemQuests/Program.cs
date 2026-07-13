@@ -22,7 +22,8 @@ namespace MergeDialogItemQuests
         public static void RunPatch(IPatcherState<IFallout3Mod, IFallout3ModGetter> state)
         {
             int dialogItems = 0;
-            int merged = 0;
+            int questsMerged = 0;
+            int responsesMerged = 0;
             int needsCheck = 0;
             int dialogItemOverrides = 0;
             int skipped = 0;
@@ -37,7 +38,8 @@ namespace MergeDialogItemQuests
                 }
                 ++needsCheck;
                 ++dialogItemOverrides;
-                // aggregate Associated Quests and Info Order from winning override and any earlier instances of the Dialog Item
+                // aggregate Associated Quests and Info Order (Masters) from winning override and any earlier instances of the Dialog Item
+                // Info Order (Masters) is stored as Info Order (all previous)
                 var dialogItemLink = dialogItem.FormKey.ToLink<IDialogTopicGetter>();
                 ISet<FormKey> quests = new HashSet<FormKey>();
                 IList<DialogTopicAssociatedQuest> allQuests = new List<DialogTopicAssociatedQuest>();
@@ -55,20 +57,19 @@ namespace MergeDialogItemQuests
                             allQuests.Add(quest.DeepCopy());
                         }
                     }
-                    if (dialogItemVersion.InfoOrderAllPreviousModules is null)
+                    first = false;
+                    if (dialogItemVersion.InfoOrderMastersOnly is null)
                     {
-                        first = false;
                         continue;
                     }
-                    foreach (var info in dialogItemVersion.InfoOrderAllPreviousModules)
+                    foreach (var info in dialogItemVersion.InfoOrderMastersOnly)
                     {
                         // No need to copy entries from winning override but we must record and count them
-                        if (infoOrders.Add(info.FormKey) && !first)
+                        if (infoOrders.Add(info.FormKey))
                         {
                             allInfoOrders.Add(info);
                         }
                     }
-                    first = false;
                 }
                 // Push Associated Quests and Info Order for all previous overrides into patch, provided not already present in winning override
                 if (quests.Count > dialogItem.AssociatedQuests.Count)
@@ -76,7 +77,7 @@ namespace MergeDialogItemQuests
                     if (state.PatchMod.DialogTopics.TryGetOrAddAsOverride(dialogItem.ToLink(), state.LinkCache, out var updated))
                     {
                         updated.AssociatedQuests.AddRange(allQuests);
-                        ++merged;
+                        ++questsMerged;
                     }
                     else
                     {
@@ -94,7 +95,7 @@ namespace MergeDialogItemQuests
                             updated.InfoOrderAllPreviousModules = new ExtendedList<IFormLinkGetter<IDialogResponsesGetter>>();
                         }
                         updated.InfoOrderAllPreviousModules.AddRange(allInfoOrders);
-                        ++merged;
+                        ++responsesMerged;
                     }
                     else
                     {
@@ -102,8 +103,8 @@ namespace MergeDialogItemQuests
                     }
                 }
             }
-            Console.WriteLine("Total Dialog Topics {0}, skipped {1}, checked masters/total records/Associated-Quests merged {2}/{3}/{4}",
-                dialogItems, skipped, needsCheck, dialogItemOverrides, merged);
+            Console.WriteLine("Total Dialog Topics {0}, skipped {1}, checked masters/total records {2}/{3}, Associated-Quests/Dialog-Responses merged {4}/{5}",
+                dialogItems, skipped, needsCheck, dialogItemOverrides, questsMerged, responsesMerged);
         }
     }
 }
