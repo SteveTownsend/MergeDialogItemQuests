@@ -42,9 +42,9 @@ namespace MergeDialogItemQuests
                 // Info Order (Masters) is stored as Info Order (all previous)
                 var dialogItemLink = dialogItem.FormKey.ToLink<IDialogTopicGetter>();
                 ISet<FormKey> quests = new HashSet<FormKey>();
-                IList<DialogTopicAssociatedQuest> allQuests = new List<DialogTopicAssociatedQuest>();
+                IList<DialogTopicAssociatedQuest> extraQuests = new List<DialogTopicAssociatedQuest>();
                 ISet<FormKey> infoOrders = new HashSet<FormKey>();
-                IList<IFormLinkGetter<IDialogResponsesGetter>> allInfoOrders = new List<IFormLinkGetter<IDialogResponsesGetter>>();
+                IList<IFormLinkGetter<IDialogResponsesGetter>> extraInfoOrders = new List<IFormLinkGetter<IDialogResponsesGetter>>();
                 bool first = true;
                 foreach (var dialogItemVersion in dialogItemLink.ResolveAll(state.LinkCache))
                 {
@@ -54,7 +54,8 @@ namespace MergeDialogItemQuests
                         // No need to copy entries from winning override but we must record and count them
                         if (quests.Add(quest.Quest.FormKey) && !first)
                         {
-                            allQuests.Add(quest.DeepCopy());
+                            Console.WriteLine("Quest {0}", quest.Quest.FormKey);
+                            extraQuests.Add(quest.DeepCopy());
                         }
                     }
                     first = false;
@@ -64,10 +65,11 @@ namespace MergeDialogItemQuests
                     }
                     foreach (var info in dialogItemVersion.InfoOrderMastersOnly)
                     {
-                        // No need to copy entries from winning override but we must record and count them
+                        // Info is required for all masters
                         if (infoOrders.Add(info.FormKey))
                         {
-                            allInfoOrders.Add(info);
+                            Console.WriteLine("Dialog Responses {0}", info.FormKey);
+                            extraInfoOrders.Add(info);
                         }
                     }
                 }
@@ -76,7 +78,7 @@ namespace MergeDialogItemQuests
                 {
                     if (state.PatchMod.DialogTopics.TryGetOrAddAsOverride(dialogItem.ToLink(), state.LinkCache, out var updated))
                     {
-                        updated.AssociatedQuests.AddRange(allQuests);
+                        updated.AssociatedQuests.AddRange(extraQuests);
                         ++questsMerged;
                     }
                     else
@@ -94,7 +96,7 @@ namespace MergeDialogItemQuests
                         {
                             updated.InfoOrderAllPreviousModules = new ExtendedList<IFormLinkGetter<IDialogResponsesGetter>>();
                         }
-                        updated.InfoOrderAllPreviousModules.AddRange(allInfoOrders);
+                        updated.InfoOrderAllPreviousModules.AddRange(extraInfoOrders);
                         ++responsesMerged;
                     }
                     else
